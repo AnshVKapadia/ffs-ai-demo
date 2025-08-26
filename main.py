@@ -1,13 +1,28 @@
 # main.py
 import os
 import streamlit as st
-from dotenv import load_dotenv
 
 # Local modules
 from default_bot import generate_default_response
 from scholarship_bot import generate_scholarship_response
 
-load_dotenv()
+# --------------------------
+# Load API key (Secrets > env)
+# --------------------------
+def ensure_openai_key():
+    """
+    Prefer Streamlit Secrets. Fall back to env var for local dev.
+    Also writes the key into os.environ so downstream modules work.
+    """
+    secret_key = st.secrets.get("OPENAI_API_KEY", None)
+    env_key = os.getenv("OPENAI_API_KEY")
+    key = secret_key or env_key
+    if key and env_key != key:
+        os.environ["OPENAI_API_KEY"] = key
+    source = "Streamlit Secrets" if secret_key else ("Environment variable" if env_key else None)
+    return bool(key), source
+
+api_ok, api_source = ensure_openai_key()
 
 # --------------------------
 # Streamlit page config
@@ -23,10 +38,12 @@ with st.sidebar:
     st.header("Mode & Settings")
     mode = st.radio("Mode", ["Default Chatbot", "Scholarship Finder"], horizontal=False)
 
-    api_ok = bool(os.getenv("OPENAI_API_KEY"))
-    st.markdown(f"**API Key loaded:** {'✅' if api_ok else '❌'}")
+    st.markdown(f"**API Key loaded:** {'✅' if api_ok else '❌'}"
+                + (f" ({api_source})" if api_source else ""))
+
     if not api_ok:
-        st.info("Set OPENAI_API_KEY in your environment or .env")
+        st.info("Add OPENAI_API_KEY via App → ⋯ → Settings → Secrets (recommended), "
+                "or set a local environment variable for development.")
 
     keep_history = st.checkbox("Remember short chat history", value=True)
     show_usage = st.checkbox("Show token usage (if returned)", value=True)
